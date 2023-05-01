@@ -1,0 +1,1 @@
+ g++ .\test.cpp -fopenmp -O0 // 关闭优化
