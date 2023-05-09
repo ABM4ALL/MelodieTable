@@ -179,8 +179,13 @@ class DatabaseConnector:
         insp = inspect(self.engine)
         if not insp.has_table(table_name):
             stat_cls.__table__.create(bind=self.engine)
-        self.engine.execute(
-            stat_cls.__table__.insert(),
-            data
-        )
+        # self.engine.execute(
+        #     stat_cls.__table__.insert(),
+        #     data
+        # )
+        with self.engine.connect() as conn:
+            conn.execute(
+                stat_cls.__table__.insert(),
+                data
+            )
 
