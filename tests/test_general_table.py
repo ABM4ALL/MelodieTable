@@ -27,7 +27,6 @@ def test_load_table():
 
 
 def test_write_table():
-    from Melodie import run_profile
     l = ['a', 'b', 'c', 'd', '__e', 'f', 'g']
     table = Table.from_dicts("mytable", {k: Integer() for k in l}, [
         {k: i for k in l} for i in range(2000)])
