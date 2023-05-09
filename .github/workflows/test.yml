@@ -36,5 +36,5 @@ jobs:
     
     - name: Reinstall Lower-version sqlalchemy and rerun-test
       run: |
-        python3 -m pip install sqlalchemy<2.0
+        python3 -m pip install sqlalchemy~=1.4
         pytest -s
