@@ -2,7 +2,7 @@ from typing import Callable, List, Tuple, Type, Union, Dict
 from sqlalchemy import Column
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.orm import declarative_base
-from .reader_writer import TableReader, TableWriter
+from .reader_writer import TableReader, TableWriter, DatabaseConnector
 from .table_base import TableBase, RowBase
 
 Base = declarative_base()
@@ -77,7 +77,6 @@ class Table(TableBase):
         columns = Table.parse_header(header)
 
         for row_data in rows_iter:
-            print(row_data, columns)
             table_row_obj = table.row_cls(
                 **{col: row_data[i] for i, col in enumerate(columns)})
             table.data.append(table_row_obj)
@@ -91,6 +90,11 @@ class Table(TableBase):
         for row_data in self.data:
             writer.send([row_data.__dict__[k] for k in headers])
         writer.close()
+
+    def to_database(self, engine, table_name: str):
+        conn = DatabaseConnector(engine)
+        conn.write_table(table_name, self.row_types, [
+                         d.__dict__ for d in self.data])
 
     def to_file_with_codegen(self, file_name: str, encoding="utf-8"):
         writer = TableWriter(file_name,

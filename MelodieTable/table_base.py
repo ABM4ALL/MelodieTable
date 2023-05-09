@@ -10,6 +10,14 @@ class RowBase:
 
 
 class TableBase:
+
+    class IatIndicer:
+        def __init__(self, data: List) -> None:
+            self.data = data
+
+        def __getitem__(self, indices):
+            return getattr(self.data[indices[0]], indices[1])
+
     def __init__(self) -> None:
         self.data: List[object] = []
 
@@ -52,3 +60,7 @@ class TableBase:
         new_table = self.create_same_schemed_empty()
         new_table.data = new_data
         return new_table
+
+    @property
+    def iat(self):
+        return TableBase.IatIndicer(self.data)
