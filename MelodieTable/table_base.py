@@ -11,12 +11,19 @@ class RowBase:
 
 class TableBase:
 
-    class IatIndicer:
+    class IatObjectsIndicer:
         def __init__(self, data: List) -> None:
             self.data = data
 
         def __getitem__(self, indices):
             return getattr(self.data[indices[0]], indices[1])
+
+    class IatDictsIndicer:
+        def __init__(self, data: List) -> None:
+            self.data = data
+
+        def __getitem__(self, indices):
+            return self.data[indices[0]][indices[1]]
 
     def __init__(self) -> None:
         self.data: List[object] = []
@@ -63,4 +70,4 @@ class TableBase:
 
     @property
     def iat(self):
-        return TableBase.IatIndicer(self.data)
+        return TableBase.IatObjectsIndicer(self.data)
