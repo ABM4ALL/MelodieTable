@@ -1,6 +1,6 @@
 import csv
 
-from typing import Callable, List, Tuple, Type, Union, Dict
+from typing import Callable, Generic, List, Optional, Tuple, Type, TypeVar, Union, Dict, cast
 from sqlalchemy import Column
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.orm import declarative_base
@@ -24,11 +24,14 @@ class PyAMKey:
 
 RowType = Union[Type, Dict[str, TypeEngine]]
 
+PyAMTableRowType = TypeVar("PyAMTableRowType")
 
-class PyAMTable(TableBase):
-    def __init__(self, name: str, row_type: PyAMTableRow, data_type=float) -> None:
+
+class PyAMTable(TableBase, Generic[PyAMTableRowType]):
+    data: List[PyAMTableRowType]
+
+    def __init__(self, row_type: Union[Type[PyAMTableRow], Dict[str, TypeEngine]], data_type=float) -> None:
         super().__init__()
-        self.name = name
         self.row_cls: Type = None
         self._db_model_cls: Type = None
         self.row_types: Dict[str, Column] = {}
@@ -45,7 +48,7 @@ class PyAMTable(TableBase):
                 f"Cannot recognize table row type {type(row_type)}")
 
     def create_empty(self):
-        return PyAMTable("", {})
+        return PyAMTable(PyAMTableRow)
 
     @staticmethod
     def parse_header(header_colnames_list: List[str]):
@@ -63,15 +66,15 @@ class PyAMTable(TableBase):
                 ), f"{col_name} should be an identifier"
                 keys.append(PyAMKey(col_name, col_index))
         return keys, time_points
+
     def conv_type(self, item):
-        if item=="" or item is None:
+        if item == "" or item is None:
             return None
         return self.data_type(item)
-        
 
     @staticmethod
     def from_file(file_name: str, row_types: RowType, data_type=float, encoding='utf-8'):
-        table = PyAMTable('', row_types, data_type=data_type,)
+        table = PyAMTable(row_types, data_type=data_type,)
         reader = TableReader(file_name,
                              text_encoding=encoding)
         header, rows_iter = reader.read()
@@ -87,8 +90,8 @@ class PyAMTable(TableBase):
         return table
 
     @staticmethod
-    def from_dicts(name: str, row_type: RowType, dicts: List[dict]):
-        table = PyAMTable(name, row_type)
+    def from_dicts(row_type: RowType, dicts: List[dict]):
+        table = PyAMTable(row_type)
         for dic in dicts:
             table.data.append(table.row_cls(**dic))
         return table
@@ -97,17 +100,11 @@ class PyAMTable(TableBase):
         _, obj = self.find_one_with_index(query)
         return obj
 
-    def find_one_with_index(self, query: Callable[[object], bool]) -> Tuple[int, object]:
+    def find_one_with_index(self, query: Callable[[PyAMTableRowType], bool]) -> Tuple[int, Optional[PyAMTableRowType]]:
         for i, obj in enumerate(self.data):
             if query(obj):
                 return i, obj
         return -1, None
-    # def get_db_class(self):
-    #     if self._db_model_cls is not None:
-    #         self._db_model_cls = type("TableModel_"+self.name, (Base,), {
-    #             '__tablename__': "{}".format(self.name),
-    #             "id": Column(Integer, primary_key=True, autoincrement=True),
-    #             "a": Column(Integer),
-    #             "b": Column(Integer)
-    #         })
-    #     return self._db_model_cls
+
+    def filter(self, query: Callable[[PyAMTableRowType], bool]) -> "PyAMTable[PyAMTableRowType]":
+        return cast(PyAMTable, super().filter(cast(Callable[[object], bool], query)))

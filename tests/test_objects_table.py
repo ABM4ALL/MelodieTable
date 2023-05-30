@@ -14,10 +14,11 @@ SQLITE_FILE = os.path.join(OUTPUT_DIR, "out.sqlite")
 
 
 def test_create_table():
-    table = Table.from_dicts("mytable", {"a": Integer(), "b": Integer()}, [
+    table = Table.from_dicts({"a": Integer(), "b": Integer()}, [
         {"a": i, "b": i} for i in range(1000)])
 
     row = table.find_one(lambda obj: obj.a == 999)
+    assert row is not None
     assert row.a == 999
 
 
@@ -28,7 +29,7 @@ def test_load_table():
 
 def test_write_table():
     l = ['a', 'b', 'c', 'd', '__e', 'f', 'g']
-    table = Table.from_dicts("mytable", {k: Integer() for k in l}, [
+    table = Table.from_dicts({k: Integer() for k in l}, [
         {k: i for k in l} for i in range(2000)])
     t0 = time.time()
     table.to_file_with_codegen(CSVFILE_TO_WRITE)
@@ -76,8 +77,7 @@ def create_collector(properties: List[str]):
 def test_to_database():
     engine = create_engine("sqlite:///"+SQLITE_FILE)
     agents = [{"a": i, "b": i} for i in range(1000)]
-    table = Table.from_dicts(
-        'aaaaaa', {"a": Integer(), "b": Integer()}, agents)
+    table = Table.from_dicts({"a": Integer(), "b": Integer()}, agents)
     # table.from_dicts()
 
     table.to_database(engine, "aaaaaa")
@@ -85,7 +85,7 @@ def test_to_database():
 
 def test_data_collect():
     agents = [Agent(i, i*2) for i in range(1000)]
-    table = Table('aaaaaa', {"a": Integer(), "b": Integer()})
+    table = Table({"a": Integer(), "b": Integer()})
     # print(create_collector(["a", "b"]))
 
     def collector3(a, table: Table):
@@ -111,8 +111,8 @@ def test_data_collect():
     t4 = time.time()
     print(t1-t0, t2-t1, t3-t2, 'dynamically-created-collector', t4-t3)
 
+
 def test_indicing():
     agents = [{"a": i, "b": i} for i in range(1000)]
-    table = Table.from_dicts(
-        'aaaaaa', {"a": Integer(), "b": Integer()}, agents)
+    table = Table.from_dicts({"a": Integer(), "b": Integer()}, agents)
     assert table.iat[50, 'a'] == 50

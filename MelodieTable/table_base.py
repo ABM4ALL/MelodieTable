@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, TypeVar
 
 
 class RowBase:
@@ -9,7 +9,7 @@ class RowBase:
         return f"<{self.__class__.__name__} {self.payload_to_str()}>"
 
 
-class TableBase:
+class TableBase():
 
     class IatObjectsIndicer:
         def __init__(self, data: List) -> None:

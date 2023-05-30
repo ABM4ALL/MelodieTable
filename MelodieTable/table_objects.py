@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Type, Union, Dict
+from typing import Callable, Generic, List, Optional, Tuple, Type, Union, Dict, TypeVar
 from sqlalchemy import Column
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.orm import declarative_base
@@ -19,7 +19,7 @@ class TableRow(RowBase):
             setattr(self, k, v)
 
     @staticmethod
-    def vectorizer(attrs: List[str]) -> Callable[[List[str]], str]:
+    def vectorizer(attrs: List[str]) -> Callable[[object], List[Union[bool, int, float, str]]]:
         exprs = ",".join(['obj.'+attr for attr in attrs])
         code = VEC_TEMPLATE.format(exprs=exprs)
         vars = {}
@@ -29,11 +29,14 @@ class TableRow(RowBase):
 
 RowType = Union[Type, Dict[str, TypeEngine]]
 
+TableRowGeneric = TypeVar("TableRowGeneric")
 
-class Table(TableBase):
-    def __init__(self, name: str, row_type: RowType) -> None:
+
+class Table(TableBase, Generic[TableRowGeneric]):
+    data: List[TableRowGeneric]
+
+    def __init__(self, row_type: RowType) -> None:
         super().__init__()
-        self.name = name
         self.row_cls: Type = None
         self._db_model_cls: Type = None
         self.row_types: Dict[str, Column] = {}
@@ -70,7 +73,7 @@ class Table(TableBase):
 
     @staticmethod
     def from_file(file_name: str, row_types: RowType, encoding='utf-8'):
-        table = Table('', row_type=row_types)
+        table = Table(row_type=row_types)
         reader = TableReader(file_name,
                              text_encoding=encoding)
         header, rows_iter = reader.read()
@@ -107,17 +110,17 @@ class Table(TableBase):
         writer.close()
 
     @staticmethod
-    def from_dicts(name: str, row_type: RowType, dicts: List[dict]):
-        table = Table(name, row_type)
+    def from_dicts(row_type: RowType, dicts: List[dict]):
+        table = Table(row_type)
         for dic in dicts:
             table.data.append(table.row_cls(**dic))
         return table
 
-    def find_one(self, query: Callable[[object], bool]) -> object:
+    def find_one(self, query: Callable[[TableRowGeneric], bool]) -> Optional[TableRowGeneric]:
         _, obj = self.find_one_with_index(query)
         return obj
 
-    def find_one_with_index(self, query: Callable[[object], bool]) -> Tuple[int, object]:
+    def find_one_with_index(self, query: Callable[[TableRowGeneric], bool]) -> Tuple[int, Optional[TableRowGeneric]]:
         for i, obj in enumerate(self.data):
             if query(obj):
                 return i, obj

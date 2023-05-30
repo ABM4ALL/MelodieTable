@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Type, Union, Dict
+from typing import Callable, List, Optional, Tuple, Type, Union, Dict
 from sqlalchemy import Column
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.orm import declarative_base
@@ -17,9 +17,10 @@ RowType = Dict[str, TypeEngine]
 
 
 class GeneralTable(TableBase):
-    def __init__(self, name: str, row_type: RowType) -> None:
+    data: List[dict]
+
+    def __init__(self, row_type: RowType) -> None:
         super().__init__()
-        self.name = name
         self._db_model_cls: Type = None
         self.row_types: Dict[str, Column] = {}
 
@@ -41,7 +42,7 @@ class GeneralTable(TableBase):
 
     @staticmethod
     def from_file(file_name: str, row_types: RowType, encoding='utf-8'):
-        table = GeneralTable('', row_type=row_types)
+        table = GeneralTable(row_type=row_types)
         reader = TableReader(file_name,
                              text_encoding=encoding)
         header, rows_iter = reader.read()
@@ -65,15 +66,15 @@ class GeneralTable(TableBase):
         conn = DatabaseConnector(engine)
         conn.write_table(table_name, self.row_types, self.data)
 
-    def from_pandas(self, df: "pd.DataFrame"):
-        """
-        Create a general table from pandas dataframe.
-        """
-        pass
+    # def from_pandas(self, df: "pd.DataFrame"):
+    #     """
+    #     Create a general table from pandas dataframe.
+    #     """
+    #     pass
 
     @staticmethod
-    def from_dicts(name: str, row_type: RowType, dicts: List[dict], copy=True):
-        table = GeneralTable(name, row_type)
+    def from_dicts(row_type: RowType, dicts: List[dict], copy=True):
+        table = GeneralTable(row_type)
         if not copy:
             for dic in dicts:
                 table.data.append(dic)
@@ -82,11 +83,11 @@ class GeneralTable(TableBase):
                 table.data.append({k: v for k, v in dic.items()})
         return table
 
-    def find_one(self, query: Callable[[object], bool]) -> object:
+    def find_one(self, query: Callable[[dict], bool]) -> Optional[dict]:
         _, obj = self.find_one_with_index(query)
         return obj
 
-    def find_one_with_index(self, query: Callable[[object], bool]) -> Tuple[int, object]:
+    def find_one_with_index(self, query: Callable[[dict], bool]) -> Tuple[int, Optional[dict]]:
         for i, obj in enumerate(self.data):
             if query(obj):
                 return i, obj
