@@ -1,15 +1,16 @@
 import time
 from base import is_pypy
-from MelodieTable import Table, TableRow
+from MelodieTable import Table
+
 
 def df_getitem(df, b_value):
     val = df.loc[df["b"] == b_value, :]
-    return val
+    # print(val["b"][0])
+    # assert val["b"] == M-1
 
 
 def table_getitem(table: Table, b_value):
     val = table.find_one(lambda o: o.b == b_value)
-    return val
     # assert val.b == M-1
 
 
@@ -18,19 +19,16 @@ def on_cpython():
     df = pd.DataFrame(l1)
     t0 = time.time()
     for i in range(N):
-        df_getitem(df,M-(i%100))
+        df_getitem(df, M-1)
     t1 = time.time()
     return t1-t0
 
-class RowModel(TableRow):
-    a: int
-    b: int
 
 def on_pypy():
     t0 = time.time()
-    table = Table.from_dicts(RowModel, l1)
+    table = Table.from_dicts('a', {}, l1)
     for i in range(N):
-        table_getitem(table, M-(i%100))
+        table_getitem(table, M-1)
     t1 = time.time()
     return t1-t0
 

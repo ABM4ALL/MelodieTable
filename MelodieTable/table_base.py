@@ -1,4 +1,28 @@
-from typing import Callable, List, Tuple, TypeVar
+from dataclasses import dataclass
+from sqlalchemy.types import BigInteger, Text, TypeEngine, Float, Boolean
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Type, Any
+
+pytypes_to_satypes: Dict[Type, Type[TypeEngine]] = {
+    int: BigInteger,
+    str: Text,
+    float: Float,
+    bool: Boolean
+}
+
+
+@dataclass
+class ColumnMeta:
+    column_name: str
+    dtype: Optional[TypeEngine]
+
+    def __post_init__(self):
+        assert isinstance(
+            self.dtype, TypeEngine) or self.dtype is None, self.dtype
+
+
+def column_meta(col_name: str, dtype: Optional[TypeEngine] = None) -> Any:
+    o = ColumnMeta(col_name, dtype)
+    return o
 
 
 class RowBase:

@@ -3,7 +3,7 @@ from sqlalchemy import Column
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.orm import declarative_base
 from .reader_writer import TableReader, TableWriter, DatabaseConnector
-from .table_base import TableBase, RowBase
+from .table_base import TableBase, RowBase, pytypes_to_satypes, ColumnMeta
 
 Base = declarative_base()
 
@@ -15,8 +15,59 @@ def vectorize_template(obj):
 
 class TableRow(RowBase):
     def __init__(self, **kwargs) -> None:
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        if kwargs is not None:
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    @classmethod
+    def from_dict(cls, d: Dict, aliases: Dict[str, str]):
+        r = TableRow()
+        for k, v in d.items():
+            setattr(r, aliases[k], v)
+        return r
+
+    @classmethod
+    def get_annotations(cls) -> Dict[str, Union[Type[int], Type[str], Type[float]]]:
+        return cls.__annotations__
+
+    @classmethod
+    def get_aliases(cls):
+        attr_names = list(cls.__dict__.keys()) + \
+            list(cls.get_annotations().keys())
+        aliases = {}
+        for attr_name in attr_names:
+            if hasattr(cls, attr_name) and isinstance(getattr(cls, attr_name), ColumnMeta):
+                attr: ColumnMeta = getattr(cls, attr_name)
+                aliases[attr.column_name] = attr_name
+            else:
+                aliases[attr_name] = attr_name
+        return aliases
+
+    @classmethod
+    def get_datatypes(cls):
+        """
+        Get the datatype represented in database.
+        """
+        attr_names = list(cls.__dict__.keys()) + \
+            list(cls.get_annotations().keys())
+        attr_names = [attr_name for attr_name in list(
+            set(attr_names)) if not attr_name.startswith("__")]
+        dtypes = {}
+        for attr_name in attr_names:
+            assert attr_name in cls.get_annotations(
+            ), f"Attribute \"{attr_name}\" of class {cls.__name__} must be annotated!"
+            if not hasattr(cls, attr_name):
+                dtype = pytypes_to_satypes[cls.get_annotations()[attr_name]]()
+            else:
+                meta = getattr(cls, attr_name)
+                assert isinstance(meta, ColumnMeta)
+                if meta.dtype is not None:
+                    dtype = meta.dtype
+                else:
+                    dtype = pytypes_to_satypes[cls.get_annotations()[
+                        attr_name]]()
+            dtypes[attr_name] = dtype
+        return dtypes
 
     @staticmethod
     def vectorizer(attrs: List[str]) -> Callable[[object], List[Union[bool, int, float, str]]]:
@@ -37,12 +88,13 @@ class Table(TableBase, Generic[TableRowGeneric]):
 
     def __init__(self, row_type: RowType) -> None:
         super().__init__()
-        self.row_cls: Type = None
+        self.row_cls: Type[TableRowGeneric] = None
         self._db_model_cls: Type = None
         self.row_types: Dict[str, Column] = {}
 
-        if callable(row_type):
+        if callable(row_type) and issubclass(row_type, TableRow):
             self.row_cls = row_type
+            self.row_types = row_type.get_datatypes()
         elif isinstance(row_type, dict):
             self.row_cls = TableRow
             for prop_name, prop_value in row_type.items():
@@ -55,10 +107,7 @@ class Table(TableBase, Generic[TableRowGeneric]):
         self.data = []
 
     def new_row(self):
-        # if len(self._deleted_rows_cache) == 0:
         return self.row_cls()
-        # else:
-        #     return self._deleted_rows_cache.pop()
 
     @staticmethod
     def parse_header(header_colnames_list: List[str]):
@@ -112,9 +161,14 @@ class Table(TableBase, Generic[TableRowGeneric]):
     @staticmethod
     def from_dicts(row_type: RowType, dicts: List[dict]):
         table = Table(row_type)
+        aliases = table.row_cls.get_aliases()
         for dic in dicts:
-            table.data.append(table.row_cls(**dic))
+            table.data.append(table.row_cls.from_dict(dic, aliases))
         return table
+
+    def apply(self, ufunc: Callable[[TableRowGeneric], None]) -> None:
+        for row in self.data:
+            ufunc(row)
 
     def find_one(self, query: Callable[[TableRowGeneric], bool]) -> Optional[TableRowGeneric]:
         _, obj = self.find_one_with_index(query)
@@ -125,12 +179,3 @@ class Table(TableBase, Generic[TableRowGeneric]):
             if query(obj):
                 return i, obj
         return -1, None
-    # def get_db_class(self):
-    #     if self._db_model_cls is not None:
-    #         self._db_model_cls = type("TableModel_"+self.name, (Base,), {
-    #             '__tablename__': "{}".format(self.name),
-    #             "id": Column(Integer, primary_key=True, autoincrement=True),
-    #             "a": Column(Integer),
-    #             "b": Column(Integer)
-    #         })
-    #     return self._db_model_cls

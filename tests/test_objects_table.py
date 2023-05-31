@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 import os
 import time
 from typing import List
 from base import OUTPUT_DIR
-from MelodieTable import Table
-from sqlalchemy import Integer, create_engine
+from MelodieTable import Table, TableRow, column_meta
+from sqlalchemy import BigInteger, Integer, create_engine
 
 XLSFILE = os.path.join(os.path.dirname(
     __file__), "data", "params.xlsx")
@@ -13,8 +14,19 @@ CSVFILE_TO_WRITE = os.path.join(OUTPUT_DIR, "params.csv")
 SQLITE_FILE = os.path.join(OUTPUT_DIR, "out.sqlite")
 
 
+class TableRowType1(TableRow):
+    a: int
+    b: int = column_meta("b", Integer())
+
+
 def test_create_table():
-    table = Table.from_dicts({"a": Integer(), "b": Integer()}, [
+    print(TableRowType1.__annotations__, TableRowType1.__dict__)
+    print(TableRowType1.get_datatypes())
+
+    assert type(TableRowType1.get_datatypes()["a"]) == BigInteger
+    assert type(TableRowType1.get_datatypes()["b"]) == Integer
+
+    table = Table.from_dicts(TableRowType1, [
         {"a": i, "b": i} for i in range(1000)])
 
     row = table.find_one(lambda obj: obj.a == 999)
@@ -22,14 +34,42 @@ def test_create_table():
     assert row.a == 999
 
 
+class TableRowType2(TableRow):
+    a: int = column_meta("**a")
+    b: int = column_meta("^&1b", Integer())
+
+
+def test_create_with_alias():
+
+    assert type(TableRowType2.get_datatypes()["a"]) == BigInteger
+    assert type(TableRowType2.get_datatypes()["b"]) == Integer
+
+    table = Table.from_dicts(TableRowType2, [
+        {"**a": i, "^&1b": i} for i in range(100)])
+    print(table.data)
+    row = table.find_one(lambda obj: obj.a == 99)
+    assert row is not None
+    assert row.a == 99
+
+
 def test_load_table():
     table = Table.from_file(XLSFILE, {})
     print(table.data[-1])
 
 
+class TableRowCls4WriteTable(TableRow):
+    a: int
+    b: int
+    c: int
+    d: int
+    _e: int
+    f: int
+    g: int
+
+
 def test_write_table():
-    l = ['a', 'b', 'c', 'd', '__e', 'f', 'g']
-    table = Table.from_dicts({k: Integer() for k in l}, [
+    l = ['a', 'b', 'c', 'd', '_e', 'f', 'g']
+    table = Table.from_dicts(TableRowCls4WriteTable, [
         {k: i for k in l} for i in range(2000)])
     t0 = time.time()
     table.to_file_with_codegen(CSVFILE_TO_WRITE)
@@ -77,7 +117,7 @@ def create_collector(properties: List[str]):
 def test_to_database():
     engine = create_engine("sqlite:///"+SQLITE_FILE)
     agents = [{"a": i, "b": i} for i in range(1000)]
-    table = Table.from_dicts({"a": Integer(), "b": Integer()}, agents)
+    table = Table.from_dicts(TableRowType1, agents)
     # table.from_dicts()
 
     table.to_database(engine, "aaaaaa")
@@ -114,5 +154,5 @@ def test_data_collect():
 
 def test_indicing():
     agents = [{"a": i, "b": i} for i in range(1000)]
-    table = Table.from_dicts({"a": Integer(), "b": Integer()}, agents)
+    table = Table.from_dicts(TableRowType1, agents)
     assert table.iat[50, 'a'] == 50
