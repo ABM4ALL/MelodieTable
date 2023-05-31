@@ -1,4 +1,5 @@
 # MelodieTable
+[![Tests](https://github.com/ABM4ALL/MelodieTable/actions/workflows/test.yml/badge.svg)](https://github.com/ABM4ALL/MelodieTable/actions/workflows/test.yml)
 ## Introduction
 MelodieTable is a pure-python, light-weight and JIT-friendly table library.
 It works on CPython3, PyPy and many other third-party interpreters. 
